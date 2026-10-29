@@ -11,12 +11,13 @@ load_dotenv()
 
 st.set_page_config(
     page_title="Krishi Sahayak",
-    page_icon="🌱",
+    page_icon=None,
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 
+# API key: local .env or Streamlit Cloud secrets
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -25,96 +26,168 @@ if not api_key:
     except Exception:
         api_key = None
 
-
 if not api_key:
-    st.error("Gemini API key is missing. Please add it to your .env file.")
+    st.error("Gemini API key is missing. Add it to .env locally or Streamlit secrets when deployed.")
     st.stop()
-
 
 client = genai.Client(api_key=api_key)
 
 
 SYSTEM_PROMPT = """
-You are Krishi Sahayak, a friendly agricultural assistant for smallholder farmers in India.
+You are Krishi Sahayak, a practical agricultural assistant for smallholder farmers in India.
 
+Write like a knowledgeable field officer speaking to a farmer.
 
 Rules:
 - Use simple, respectful English.
-- Use short sentences and practical advice.
-- Format the answer using these headings:
-Possible cause:
-What to check now:
-Next steps:
-- Never give a confirmed disease diagnosis.
-- For fertilizer doses, pesticides, or serious crop problems, advise the farmer to contact a local agriculture officer.
+- Use short sentences.
+- Be practical and cautious.
+- Format the response using these headings:
+What may be happening
+Check this first
+What to do now
+When to seek expert help
+- Do not give a confirmed disease diagnosis.
+- Do not recommend exact pesticide or fertilizer doses.
+- For chemical use, serious disease, or uncertain symptoms, tell the farmer to contact a local agriculture officer.
 - If the question is unclear, ask one short clarifying question.
-- If a crop photo is provided, describe only the visible symptoms and give safe general guidance.
 """
 
 
-# Custom styling
+# Theme CSS
 st.html("""
 <style>
+    .stApp {
+        background-color: #faf9f6;
+        color: #222222;
+    }
+
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        max-width: 760px;
+        padding-top: 3.2rem;
+        padding-bottom: 4rem;
+        max-width: 720px;
     }
 
-
-    .app-header {
-        background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
-        border: 1px solid #c8e6c9;
-        border-radius: 18px;
-        padding: 28px;
-        margin-bottom: 24px;
+    h1, h2, h3 {
+        font-family: Georgia, 'Times New Roman', serif;
+        color: #1f2a24;
+        letter-spacing: -0.02em;
     }
 
-
-    .app-title {
-        font-size: 2rem;
-        font-weight: 800;
-        color: #1b5e20;
-        margin: 0;
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
     }
 
-
-    .app-subtitle {
-        color: #33691e;
-        font-size: 1rem;
-        margin-top: 8px;
+    .brand-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: #1f4d36;
+        color: #f4f1ea;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
     }
 
+    .brand-name {
+        font-family: Georgia, serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #1f2a24;
+    }
 
-    .feature-pill {
-        display: inline-block;
+    .page-title {
+        font-family: Georgia, serif;
+        font-size: 2.15rem;
+        font-weight: 700;
+        color: #17211c;
+        line-height: 1.15;
+        margin: 18px 0 10px 0;
+    }
+
+    .page-subtitle {
+        font-size: 1.02rem;
+        color: #55605a;
+        max-width: 560px;
+        line-height: 1.55;
+        margin-bottom: 28px;
+    }
+
+    .input-panel {
         background: #ffffff;
-        border: 1px solid #c8e6c9;
-        color: #2e7d32;
-        padding: 6px 12px;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        margin-right: 8px;
-        margin-top: 12px;
-    }
-
-
-    .advice-card {
-        background: #ffffff;
-        border: 1px solid #dcedc8;
-        border-left: 6px solid #2e7d32;
-        border-radius: 14px;
+        border: 1px solid #e3e0d8;
+        border-radius: 12px;
         padding: 22px;
-        margin-top: 18px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 1px 3px rgba(31, 42, 36, 0.06);
     }
 
+    .field-label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #6b7269;
+        margin-bottom: 8px;
+    }
 
-    .footer-note {
-        text-align: center;
-        color: #607d8b;
+    .advice-panel {
+        background: #ffffff;
+        border: 1px solid #e3e0d8;
+        border-top: 4px solid #1f4d36;
+        border-radius: 10px;
+        padding: 26px;
+        margin-top: 26px;
+    }
+
+    .advice-heading {
+        font-family: Georgia, serif;
+        font-size: 1.35rem;
+        color: #17211c;
+        margin: 0 0 12px 0;
+    }
+
+    .advice-note {
+        font-size: 0.86rem;
+        color: #6b7269;
+        margin-top: 14px;
+    }
+
+    .site-footer {
+        margin-top: 52px;
+        padding-top: 18px;
+        border-top: 1px solid #e3e0d8;
+        color: #6b7269;
         font-size: 0.85rem;
-        margin-top: 40px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    div[data-testid="stButton"] button {
+        background-color: #1f4d36;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.55rem 1.1rem;
+    }
+
+    div[data-testid="stButton"] button:hover {
+        background-color: #173b29;
+    }
+
+    div[data-testid="stTextArea"] textarea {
+        border-radius: 8px;
+        border-color: #d8d4ca;
+    }
+
+    div[data-testid="stFileUploader"] {
+        border-radius: 8px;
     }
 </style>
 """)
@@ -122,131 +195,133 @@ st.html("""
 
 # Header
 st.html("""
-<div class="app-header">
-    <p class="app-title">🌱 Krishi Sahayak</p>
-    <p class="app-subtitle">
-        Simple crop guidance for farmers — ask a question, upload a photo, and get clear next steps.
-    </p>
-    <span class="feature-pill">Voice-friendly</span>
-    <span class="feature-pill">Simple English</span>
-    <span class="feature-pill">Crop photo support</span>
+<div class="brand-row">
+    <div class="brand-mark">🌿</div>
+    <div class="brand-name">Krishi Sahayak</div>
 </div>
+
+<h1 class="page-title">
+    Get practical guidance for your crop problem
+</h1>
+
+<p class="page-subtitle">
+    Describe what you are seeing in your field. Add a photo if possible. Krishi Sahayak gives simple next steps and tells you when to contact a local agriculture officer.
+</p>
 """)
 
 
 # Sidebar
 with st.sidebar:
-    st.header("How to use")
+    st.header("Before you ask")
     st.markdown(
         """
-        1. Type your crop problem.  
-        2. Upload a crop photo if possible.  
-        3. Click **Get advice**.  
-        4. Listen to the advice using the voice button.
+        Include useful details:
 
+        - Crop name  
+        - What part of the plant is affected  
+        - When the problem started  
+        - Watering routine  
+        - Recent weather or fertilizer use  
 
         **Example:**  
-        “My tomato leaves are turning yellow and the soil stays wet.”
+        “Tomato plant. Lower leaves are turning yellow. Soil remains wet. Started three days ago.”
         """
     )
-
 
     st.divider()
     st.caption(
-        "Krishi Sahayak gives general guidance only. "
-        "For pesticides, fertilizer doses, or serious disease, contact a local agriculture officer."
+        "Krishi Sahayak provides general guidance. "
+        "It does not replace advice from a local agriculture officer."
     )
 
 
-# Main input
-st.subheader("Ask about your crop")
+# Input section
+st.html("""
+<div class="input-panel">
+    <div class="field-label">Describe the problem</div>
+</div>
+""")
 
-
-uploaded_image = st.file_uploader(
-    "Upload a crop photo (optional)",
-    type=["jpg", "jpeg", "png"]
+question = st.text_area(
+    "Describe the problem",
+    height=130,
+    placeholder="Example: Tomato plant. Lower leaves are turning yellow. Soil remains wet.",
+    label_visibility="collapsed"
 )
 
+uploaded_image = st.file_uploader(
+    "Add a crop photo",
+    type=["jpg", "jpeg", "png"],
+    help="A clear photo of the affected leaves or plant helps the assistant understand the symptoms."
+)
 
 if uploaded_image is not None:
     st.image(
         uploaded_image,
-        caption="Uploaded crop photo",
-        width=280
+        caption="Photo added",
+        width=300
     )
 
+submit_col, note_col = st.columns([1, 2])
 
-question = st.text_area(
-    "Describe the problem",
-    height=120,
-    placeholder="Example: My tomato leaves are turning yellow. I water the plants every day.",
-    label_visibility="collapsed"
-)
+with submit_col:
+    get_advice = st.button("Get guidance", use_container_width=True)
 
-
-col1, col2 = st.columns([1, 2])
+with note_col:
+    st.caption("You can ask with text only, photo only, or both.")
 
 
-with col1:
-    get_advice = st.button("Get advice", use_container_width=True)
+# Example prompts
+st.markdown("#### Not sure what to write?")
 
+example_1, example_2, example_3 = st.columns(3)
 
-with col2:
-    st.caption("Try to include the crop name and what you have noticed.")
+with example_1:
+    if st.button("Yellow tomato leaves", use_container_width=True):
+        st.session_state["question"] = "Tomato plant. Lower leaves are turning yellow. Soil remains wet."
+        st.rerun()
 
+with example_2:
+    if st.button("Spots on wheat leaves", use_container_width=True):
+        st.session_state["question"] = "Wheat crop. Leaves have small yellow-brown spots."
+        st.rerun()
 
-# Example questions
-st.caption("Quick examples:")
-example_cols = st.columns(3)
-
-
-examples = [
-    "Tomato leaves are turning yellow",
-    "Wheat leaves have yellow spots",
-    "How often should I water brinjal?"
-]
-
-
-for i, example in enumerate(examples):
-    with example_cols[i]:
-        if st.button(example, use_container_width=True):
-            st.session_state["question"] = example
-            st.rerun()
+with example_3:
+    if st.button("Watering brinjal", use_container_width=True):
+        st.session_state["question"] = "How often should I water brinjal plants in hot weather?"
+        st.rerun()
 
 
 if "question" in st.session_state and not question:
     question = st.session_state["question"]
 
 
-# AI response
+# Generate guidance
 if get_advice:
     if question.strip() == "" and uploaded_image is None:
-        st.warning("Please describe your crop problem or upload a crop photo.")
+        st.warning("Please describe the problem or add a crop photo.")
     else:
-        with st.spinner("Checking your question..."):
+        with st.spinner("Preparing guidance..."):
             try:
-                text_prompt = SYSTEM_PROMPT + "\n\nFarmer question:\n" + question
-
+                prompt = SYSTEM_PROMPT + "\n\nFarmer's description:\n" + question
 
                 if uploaded_image is not None:
                     image_bytes = uploaded_image.getvalue()
                     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
+                    prompt += """
 
-                    text_prompt += """
-
-Also analyze the uploaded crop photo.
-Identify only the visible symptoms.
+A crop photo is attached.
+Describe only visible symptoms.
 Do not give a confirmed diagnosis.
 """
 
-
-                    interaction = client.interactions.create(
+                    response = client.interactions.create(
                         model="gemini-3.8-flash",
                         input=[
                             {
                                 "type": "text",
-                                "text": text_prompt
+                                "text": prompt
                             },
                             {
                                 "type": "image",
@@ -256,43 +331,45 @@ Do not give a confirmed diagnosis.
                         ]
                     )
                 else:
-                    interaction = client.interactions.create(
+                    response = client.interactions.create(
                         model="gemini-3.8-flash",
-                        input=text_prompt
+                        input=prompt
                     )
 
-
-                answer = interaction.output_text
-
-
+                answer = response.output_text
                 st.session_state["answer"] = answer
 
+                st.html("""
+                <div class="advice-panel">
+                    <h2 class="advice-heading">Guidance</h2>
+                </div>
+                """)
 
-                st.html('<div class="advice-card">')
-                st.markdown("### 🌾 Advice for you")
                 st.markdown(answer)
-                st.html("</div>")
 
+                st.caption(
+                    "This is general guidance, not a confirmed diagnosis. "
+                    "For pesticide, fertilizer, or serious crop-health decisions, consult a local agriculture officer."
+                )
 
                 # Voice button
                 safe_answer = answer.replace("`", "'").replace("${", "$ {")
-
 
                 voice_html = f"""
                 <button
                     onclick="speakAdvice()"
                     style="
-                        padding: 10px 18px;
-                        border: none;
-                        border-radius: 10px;
-                        background: #2e7d32;
-                        color: white;
-                        font-size: 15px;
+                        padding: 10px 16px;
+                        border: 1px solid #1f4d36;
+                        border-radius: 8px;
+                        background: #ffffff;
+                        color: #1f4d36;
+                        font-size: 14px;
                         font-weight: 600;
                         cursor: pointer;
                     "
                 >
-                    🔊 Listen to advice
+                    Listen to this guidance
                 </button>
 
 
@@ -308,30 +385,28 @@ Do not give a confirmed diagnosis.
                 </script>
                 """
 
-
                 components.html(
                     voice_html,
-                    height=90,
+                    height=80,
                     scrolling=False
                 )
 
-
                 st.download_button(
-                    label="Download advice",
+                    label="Download guidance",
                     data=answer,
-                    file_name="krishi-sahayak-advice.txt",
+                    file_name="krishi-sahayak-guidance.txt",
                     mime="text/plain"
                 )
 
-
             except Exception as e:
-                st.error("Sorry, Krishi Sahayak could not get advice right now.")
+                st.error("Krishi Sahayak could not prepare guidance right now. Please try again.")
                 st.caption(f"Technical details: {e}")
 
 
 # Footer
 st.html("""
-<p class="footer-note">
-    Built by Grish Kumar · Krishi Sahayak · AI for accessible agriculture
-</p>
+<div class="site-footer">
+    <span>Krishi Sahayak</span>
+    <span>Built by Grish Kumar</span>
+</div>
 """)
